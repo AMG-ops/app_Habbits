@@ -1,0 +1,38 @@
+databases:
+  - name: habitude-db
+    databaseName: habitude
+    user: habitude
+    plan: free
+
+services:
+  - type: web
+    name: habitude-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: habitude-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: web
+    name: habitude-web
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: frontend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      # Private address of the API, resolved by Render at deploy time.
+      - key: API_UPSTREAM
+        fromService:
+          name: habitude-api
+          type: web
+          property: hostport

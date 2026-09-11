@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: habitude
+      POSTGRES_PASSWORD: habitude
+      POSTGRES_DB: habitude
+    volumes:
+      - habitude-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U habitude -d habitude"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://habitude:habitude@db:5432/habitude
+      JWT_SECRET: dev-secret-not-for-production
+      PORT: 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build: ./frontend
+    environment:
+      PORT: 8080
+      API_UPSTREAM: api:8000
+    depends_on:
+      - api
+    ports:
+      - "8080:8080"
+
+volumes:
+  habitude-data:
