@@ -3,17 +3,19 @@ databases:
     databaseName: habitude
     user: habitude
     plan: free
-    # Must match the services below: Render's internal hostnames only resolve
+    # Must match the service below: Render's internal hostnames only resolve
     # between resources in the same region.
     region: frankfurt
 
 services:
+  # A single image serves both the API and the interface, so there is no
+  # service-to-service call to resolve. Private networking is not available
+  # on the free plan, which is why this is not split in two.
   - type: web
-    name: habitude-api
+    name: habitude
     runtime: docker
     plan: free
     region: frankfurt
-    rootDir: backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     envVars:
@@ -23,19 +25,3 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
-
-  - type: web
-    name: habitude-web
-    runtime: docker
-    plan: free
-    region: frankfurt
-    rootDir: frontend
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /healthz
-    envVars:
-      # Private address of the API, resolved by Render at deploy time.
-      - key: API_UPSTREAM
-        fromService:
-          name: habitude-api
-          type: web
-          property: hostport

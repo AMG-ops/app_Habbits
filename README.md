@@ -30,7 +30,7 @@ docker compose up --build
 ```
 
 - Application : <http://localhost:8080>
-- Documentation de l'API : <http://localhost:8000/api/docs>
+- Documentation de l'API : <http://localhost:8080/api/docs>
 
 Les migrations sont appliquées automatiquement au démarrage du conteneur `api`.
 
@@ -47,10 +47,16 @@ docker compose down -v && docker compose up --build
 | API | FastAPI, SQLAlchemy 2, Alembic, authentification JWT (`bcrypt` + `pyjwt`) |
 | Base | PostgreSQL 16 |
 | Interface | React 18, TypeScript, Vite, sans bibliothèque de composants |
-| Distribution | deux images Docker ; nginx sert l'interface et proxifie `/api` |
+| Distribution | une seule image Docker ; FastAPI sert l'interface et l'API |
 
-Le proxy nginx fait que le navigateur ne parle qu'à une seule origine : pas de CORS à
-configurer, pas d'URL d'API à injecter au moment du build.
+Le `Dockerfile` à la racine construit l'interface avec Node, puis copie le résultat dans
+l'image Python. FastAPI sert ces fichiers et laisse le routage des pages au navigateur.
+Le navigateur ne parle donc qu'à une seule origine : pas de CORS à configurer, pas d'URL
+d'API à injecter au moment du build, et rien à résoudre entre deux services.
+
+> Le plan gratuit de Render n'inclut pas le réseau privé entre services. Un découpage
+> interface / API y échoue avec `host not found in upstream` : c'est la raison de cette
+> image unique.
 
 ### Le modèle de données
 
@@ -64,22 +70,25 @@ La contrainte `unique (habit_id, occurred_on)` garantit qu'un jour réenregistr�
 
 ## Déployer sur Render
 
-`render.yaml` est un blueprint complet : une base PostgreSQL et les deux services web.
+`render.yaml` est un blueprint complet : une base PostgreSQL et un service web.
 
 1. Pousser le dépôt sur GitHub.
 2. Sur Render : **New → Blueprint**, puis sélectionner le dépôt.
-3. Valider. `JWT_SECRET` est généré par Render, `DATABASE_URL` et l'adresse privée de
-   l'API sont câblées automatiquement.
+3. Valider. `JWT_SECRET` est généré par Render et `DATABASE_URL` est câblée
+   automatiquement.
 
-L'application est ensuite servie par `habitude-web` ; `habitude-api` n'a pas besoin
-d'être joignable publiquement.
+La base et le service doivent rester dans la **même région** : le nom d'hôte interne de
+Postgres (`dpg-…-a`) n'est résolu qu'entre ressources d'une même région. Les deux sont
+sur `frankfurt` dans le blueprint. La région d'une base ne se change pas après coup — il
+faut la supprimer et la recréer.
 
-> Sur le plan gratuit, les deux services s'endorment après quinze minutes sans trafic.
-> La première visite après une pause met une trentaine de secondes à répondre.
+> Sur le plan gratuit, le service s'endort après quinze minutes sans trafic. La première
+> visite après une pause met une trentaine de secondes à répondre.
 
 ## Structure
 
 ```
+Dockerfile       construit l'interface, puis l'embarque dans l'image de l'API
 backend/
   app/
     periods.py     arithmétique des périodes et des dates fixes

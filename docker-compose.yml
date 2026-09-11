@@ -13,8 +13,11 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
-    build: ./backend
+  # One image: the API and the built interface, exactly as deployed.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg://habitude:habitude@db:5432/habitude
       JWT_SECRET: dev-secret-not-for-production
@@ -23,17 +26,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
-
-  web:
-    build: ./frontend
-    environment:
-      PORT: 8080
-      API_UPSTREAM: api:8000
-    depends_on:
-      - api
-    ports:
-      - "8080:8080"
+      - "8080:8000"
 
 volumes:
   habitude-data:
