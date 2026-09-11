@@ -3,6 +3,9 @@ databases:
     databaseName: habitude
     user: habitude
     plan: free
+    # Must match the services below: Render's internal hostnames only resolve
+    # between resources in the same region.
+    region: frankfurt
 
 services:
   - type: web
