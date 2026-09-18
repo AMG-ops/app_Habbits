@@ -8,6 +8,7 @@ import Habits from "./pages/Habits";
 import Circle from "./pages/Circle";
 import Watch from "./pages/Watch";
 import Account from "./pages/Account";
+import Admin from "./pages/Admin";
 
 function Masthead() {
   const { user } = useAuth();
@@ -26,12 +27,13 @@ function Masthead() {
       </div>
       <nav className="nav" aria-label="Sections">
         <NavLink to="/" end>
-          Aujourd'hui
+          Accueil
         </NavLink>
         <NavLink to="/annee">L'année</NavLink>
         <NavLink to="/habitudes">Mes habitudes</NavLink>
         <NavLink to="/cercle">Mon cercle</NavLink>
         <NavLink to="/compte">Mon compte</NavLink>
+        {user?.is_admin && <NavLink to="/admin">Administration</NavLink>}
       </nav>
     </header>
   );
@@ -54,6 +56,7 @@ export default function App() {
           <Route path="/cercle" element={<Circle />} />
           <Route path="/cercle/:ownerId" element={<Watch />} />
           <Route path="/compte" element={<Account />} />
+          {user.is_admin && <Route path="/admin" element={<Admin />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

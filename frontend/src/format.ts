@@ -37,6 +37,24 @@ export function parseISO(value: string): Date {
   return new Date(year, month - 1, day);
 }
 
+export function addDays(value: string, amount: number): string {
+  const date = parseISO(value);
+  date.setDate(date.getDate() + amount);
+  return isoDate(date);
+}
+
+/** The Monday (ISO start) of the week containing `value`. */
+export function weekStartISO(value: string): string {
+  const date = parseISO(value);
+  const isoWeekday = (date.getDay() + 6) % 7; // 0 = Monday
+  return addDays(value, -isoWeekday);
+}
+
+export function shortDay(value: string): string {
+  const date = parseISO(value);
+  return String(date.getDate());
+}
+
 export function longDate(value: string): string {
   const date = parseISO(value);
   const weekday = WEEKDAYS[(date.getDay() + 6) % 7].long;

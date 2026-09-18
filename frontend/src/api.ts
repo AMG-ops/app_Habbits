@@ -11,6 +11,12 @@ export interface User {
   email: string;
   display_name: string;
   accent: Accent;
+  is_admin: boolean;
+}
+
+export interface AdminUser extends User {
+  created_at: string;
+  habit_count: number;
 }
 
 export interface Habit {
@@ -27,6 +33,7 @@ export interface Habit {
   target_value: string;
   unit: string | null;
   color: Accent;
+  category: string | null;
   position: number;
   archived: boolean;
 }
@@ -53,8 +60,29 @@ export interface YearGrid {
   day_counts: Record<string, number>;
 }
 
+export type CellState = "done" | "missed" | "pending" | "future" | "na";
+
+export interface WeekCell {
+  value: string;
+  state: CellState;
+}
+
+export interface WeekGrid {
+  start: string;
+  days: string[];
+  today: string;
+  habits: Habit[];
+  cells: Record<string, Record<string, WeekCell>>;
+  streaks: Record<string, number>;
+}
+
+export interface SharedWith {
+  user: User;
+  habit_ids: string[];
+}
+
 export interface Circle {
-  shared_with: User[];
+  shared_with: SharedWith[];
   shared_by: User[];
 }
 
@@ -70,6 +98,7 @@ export interface HabitInput {
   target_value: number;
   unit: string | null;
   color: Accent;
+  category: string | null;
 }
 
 const TOKEN_KEY = "habitude.token";
@@ -167,10 +196,23 @@ export const api = {
   grid: (ownerId: string, year: number) =>
     request<YearGrid>(`/users/${ownerId}/grid?year=${year}`),
 
+  week: (ownerId: string, start: string, today?: string) =>
+    request<WeekGrid>(
+      `/users/${ownerId}/week?start=${start}${today ? `&today=${today}` : ""}`,
+    ),
+
   circle: () => request<Circle>("/circle"),
 
   shareWith: (email: string) =>
     request<User>("/circle", { method: "POST", body: JSON.stringify({ email }) }),
 
   stopSharing: (viewerId: string) => send(`/circle/${viewerId}`, "DELETE"),
+
+  setSharedHabits: (viewerId: string, habitIds: string[]) =>
+    request<SharedWith>(`/circle/${viewerId}/habits`, {
+      method: "PUT",
+      body: JSON.stringify({ habit_ids: habitIds }),
+    }),
+
+  adminUsers: () => request<AdminUser[]>("/admin/users"),
 };
