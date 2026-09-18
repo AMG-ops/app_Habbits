@@ -13,11 +13,13 @@ const CADENCES: { value: Cadence; label: string }[] = [
 interface Props {
   initial?: Habit;
   busy: boolean;
+  /** Existing category labels, offered as suggestions. */
+  categories?: string[];
   onSubmit: (input: HabitInput) => void;
   onCancel: () => void;
 }
 
-export default function HabitForm({ initial, busy, onSubmit, onCancel }: Props) {
+export default function HabitForm({ initial, busy, categories = [], onSubmit, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
   const [cadence, setCadence] = useState<Cadence>(initial?.cadence ?? "daily");
@@ -29,6 +31,7 @@ export default function HabitForm({ initial, busy, onSubmit, onCancel }: Props) 
   const [targetValue, setTargetValue] = useState(Number(initial?.target_value ?? 1));
   const [unit, setUnit] = useState(initial?.unit ?? "");
   const [color, setColor] = useState<Accent>(initial?.color ?? "bleu");
+  const [category, setCategory] = useState(initial?.category ?? "");
 
   const byWeekday = cadence === "daily" || cadence === "weekly";
 
@@ -46,6 +49,7 @@ export default function HabitForm({ initial, busy, onSubmit, onCancel }: Props) 
       target_value: targetType === "quantity" ? targetValue : 1,
       unit: targetType === "quantity" ? unit.trim() || null : null,
       color,
+      category: category.trim() || null,
     });
   }
 
@@ -227,6 +231,24 @@ export default function HabitForm({ initial, busy, onSubmit, onCancel }: Props) 
           </label>
         </div>
       )}
+
+      <label className="field">
+        <span className="field__label">Catégorie (facultatif)</span>
+        <input
+          type="text"
+          list="habit-categories"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          maxLength={40}
+          placeholder="Santé, Travail, Perso…"
+        />
+        <datalist id="habit-categories">
+          {categories.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+        <p className="field__hint">Sert à filtrer et regrouper tes habitudes sur l'accueil.</p>
+      </label>
 
       <div className="field">
         <span className="field__label">Couleur</span>

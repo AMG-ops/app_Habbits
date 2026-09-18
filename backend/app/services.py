@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -30,6 +30,7 @@ def habit_out(habit: Habit) -> schemas.HabitOut:
         target_value=habit.target_value,
         unit=habit.unit,
         color=habit.color,
+        category=habit.category,
         position=habit.position,
         archived=habit.archived_at is not None,
     )
@@ -135,4 +136,125 @@ def year_grid(db: Session, habits: list[Habit], year: int) -> dict:
         "habits": [habit_out(h) for h in habits],
         "entries": per_habit,
         "day_counts": dict(per_day),
+    }
+
+
+_STREAK_LOOKBACK = timedelta(days=3650)
+_STREAK_CAPS = {"weekly": 520, "monthly": 120, "yearly": 15}
+
+
+def _current_streak(habit: Habit, by_day: dict[date, Decimal], today: date) -> int:
+    """Consecutive completed periods up to today, most recent first.
+
+    A period still open (today's day, or the current week/month/year) doesn't
+    break the streak just because it isn't done *yet* — only a truly missed
+    period does.
+    """
+    target = habit.target_value if habit.target_type == "quantity" else Decimal(1)
+
+    if habit.cadence == "daily":
+        wanted = set(habit.weekdays or []) if habit.schedule_mode == "fixed" else None
+        cursor = today
+        if by_day.get(cursor, Decimal(0)) < target:
+            cursor -= timedelta(days=1)
+        streak = 0
+        for _ in range(_STREAK_LOOKBACK.days):
+            if wanted is not None and cursor.isoweekday() not in wanted:
+                cursor -= timedelta(days=1)
+                continue
+            if by_day.get(cursor, Decimal(0)) >= target:
+                streak += 1
+                cursor -= timedelta(days=1)
+            else:
+                break
+        return streak
+
+    def period_progress(start: date, end: date) -> Decimal:
+        return sum((v for d, v in by_day.items() if start <= d <= end), Decimal(0))
+
+    start, end = period_bounds(habit.cadence, today)
+    if period_progress(start, end) < target:
+        start, end = previous_period_bounds(habit.cadence, today)
+
+    streak = 0
+    for _ in range(_STREAK_CAPS.get(habit.cadence, 60)):
+        if period_progress(start, end) >= target:
+            streak += 1
+            start, end = previous_period_bounds(habit.cadence, start)
+        else:
+            break
+    return streak
+
+
+def week_grid(db: Session, habits: list[Habit], start: date, today: date) -> dict:
+    """Seven days (`start`..`start`+6), every habit, plus each one's live streak."""
+    end = start + timedelta(days=6)
+    since = min(start, today) - _STREAK_LOOKBACK
+    entries = _entries_by_habit(db, [h.id for h in habits], since, max(end, today))
+
+    days = [start + timedelta(days=i) for i in range(7)]
+    cells: dict[str, dict[str, dict]] = {}
+    streaks: dict[str, int] = {}
+
+    for habit in habits:
+        by_day = entries.get(habit.id, {})
+        target = habit.target_value if habit.target_type == "quantity" else Decimal(1)
+        daily_fixed_days = (
+            set(habit.weekdays or [])
+            if habit.cadence == "daily" and habit.schedule_mode == "fixed"
+            else None
+        )
+
+        created_on = habit.created_at.date()
+        habit_cells: dict[str, dict] = {}
+        for d in days:
+            value = by_day.get(d, Decimal(0))
+            if value > 0 and value >= target:
+                state = "done"
+            elif d < created_on:
+                # The habit didn't exist yet — nothing to have missed.
+                state = "na"
+            elif d > today:
+                state = "future"
+            elif habit.cadence == "daily":
+                applies = d.isoweekday() in daily_fixed_days if daily_fixed_days is not None else True
+                if not applies:
+                    state = "na"
+                elif d == today:
+                    state = "pending"
+                else:
+                    state = "missed"
+            elif habit.schedule_mode == "fixed":
+                applies = bool(scheduled_dates(habit, d, d))
+                if not applies:
+                    state = "na"
+                elif d == today:
+                    state = "pending"
+                else:
+                    state = "missed"
+            else:
+                # Flexible weekly/monthly/yearly: any day of the period can
+                # cover it, so a quiet day only reads as "missed" once the
+                # whole period closes — that's the year page's business, not
+                # a single cell here.
+                pstart, pend = period_bounds(habit.cadence, d)
+                progress = sum((v for dd, v in by_day.items() if pstart <= dd <= pend), Decimal(0))
+                if progress >= target:
+                    state = "na"
+                elif d == today:
+                    state = "pending"
+                else:
+                    state = "na"
+            habit_cells[d.isoformat()] = {"value": str(value), "state": state}
+
+        cells[str(habit.id)] = habit_cells
+        streaks[str(habit.id)] = _current_streak(habit, by_day, today)
+
+    return {
+        "start": start.isoformat(),
+        "days": [d.isoformat() for d in days],
+        "today": today.isoformat(),
+        "habits": [habit_out(h) for h in habits],
+        "cells": cells,
+        "streaks": streaks,
     }

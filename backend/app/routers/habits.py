@@ -3,15 +3,16 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import schemas, services
 from ..db import get_db
 from ..models import Entry, Habit, User
+from ..periods import period_bounds
 from ..security import current_user
-from .deps import active_habits, owned_habit, readable_owner, today_param
+from .deps import owned_habit, readable_owner, today_param, visible_habits
 
 router = APIRouter(tags=["habits"])
 
@@ -27,6 +28,7 @@ _SCHEDULE_FIELDS = (
     "target_value",
     "unit",
     "color",
+    "category",
 )
 
 
@@ -92,6 +94,25 @@ def log_entry(
 ):
     """Record or correct a day. Any past date is accepted."""
     value = payload.value if payload.value is not None else Decimal(1)
+
+    if habit.cadence != "daily" and habit.target_type == "binary":
+        # A weekly/monthly/yearly checkbox is done once per period, full stop —
+        # ticking a second date shouldn't quietly rack up duplicate entries.
+        start, end = period_bounds(habit.cadence, payload.occurred_on)
+        other = db.scalar(
+            select(Entry).where(
+                Entry.habit_id == habit.id,
+                Entry.occurred_on >= start,
+                Entry.occurred_on <= end,
+                Entry.occurred_on != payload.occurred_on,
+            )
+        )
+        if other is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Déjà faite pour cette période. Décoche l'autre date avant d'en choisir une nouvelle.",
+            )
+
     entry = db.scalar(
         select(Entry).where(
             Entry.habit_id == habit.id, Entry.occurred_on == payload.occurred_on
@@ -130,16 +151,29 @@ def clear_entry(
 @router.get("/users/{owner_id}/today", response_model=list[schemas.HabitStatus])
 def today_view(
     owner: User = Depends(readable_owner),
+    viewer: User = Depends(current_user),
     today: date = Depends(today_param),
     db: Session = Depends(get_db),
 ):
-    return services.compute_statuses(db, active_habits(db, owner.id), today)
+    return services.compute_statuses(db, visible_habits(db, owner, viewer), today)
 
 
 @router.get("/users/{owner_id}/grid")
 def grid_view(
     owner: User = Depends(readable_owner),
+    viewer: User = Depends(current_user),
     year: int = Query(default_factory=lambda: date.today().year, ge=1970, le=2200),
     db: Session = Depends(get_db),
 ):
-    return services.year_grid(db, active_habits(db, owner.id), year)
+    return services.year_grid(db, visible_habits(db, owner, viewer), year)
+
+
+@router.get("/users/{owner_id}/week")
+def week_view(
+    owner: User = Depends(readable_owner),
+    viewer: User = Depends(current_user),
+    start: date = Query(...),
+    today: date = Depends(today_param),
+    db: Session = Depends(get_db),
+):
+    return services.week_grid(db, visible_habits(db, owner, viewer), start, today)

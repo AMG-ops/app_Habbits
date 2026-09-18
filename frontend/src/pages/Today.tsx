@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import TodayBoard from "../components/TodayBoard";
+import WeekBoard from "../components/WeekBoard";
 import { useAuth } from "../auth";
 
 export default function Today() {
@@ -8,13 +8,13 @@ export default function Today() {
 
   return (
     <>
-      <h1 className="page-title">Aujourd'hui</h1>
+      <h1 className="page-title">Cette semaine</h1>
       <p className="page-lede">
-        Ce qui attend une marque, du plus pressé au plus tranquille. Tu peux aussi cocher
-        une date passée depuis <Link to="/annee">l'année</Link>.
+        Une case par jour, une ligne par habitude : tape pour cocher. Le détail par
+        année reste dans <Link to="/annee">l'année</Link>.
       </p>
 
-      <TodayBoard
+      <WeekBoard
         ownerId={user.id}
         empty={
           <div className="empty">

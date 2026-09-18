@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import auth, circle, habits
+from .routers import admin, auth, circle, habits
 
 app = FastAPI(
     title="Habitude",
@@ -25,6 +25,7 @@ if settings.cors_origin_list:
 app.include_router(auth.router, prefix="/api")
 app.include_router(habits.router, prefix="/api")
 app.include_router(circle.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/api/health")

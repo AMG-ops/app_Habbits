@@ -74,6 +74,9 @@ export default function Habits() {
           key={editing === "new" ? "new" : editing.id}
           initial={editing === "new" ? undefined : editing}
           busy={busy}
+          categories={Array.from(
+            new Set((habits ?? []).map((h) => h.category).filter((c): c is string => !!c)),
+          )}
           onSubmit={save}
           onCancel={() => setEditing(null)}
         />
@@ -101,6 +104,7 @@ export default function Habits() {
                 <div className="row__name">{habit.name}</div>
                 <div className="row__meta">
                   <span>{cadenceLabel(habit)}</span>
+                  {habit.category && <span>{habit.category}</span>}
                   {habit.note && <span>{habit.note}</span>}
                 </div>
               </div>

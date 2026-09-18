@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -43,6 +43,7 @@ class UserOut(ORM):
     email: EmailStr
     display_name: str
     accent: str
+    is_admin: bool
 
 
 class UserUpdate(BaseModel):
@@ -77,6 +78,15 @@ class HabitBase(BaseModel):
     target_value: Decimal = Decimal(1)
     unit: str | None = Field(default=None, max_length=24)
     color: str = "bleu"
+    category: str | None = Field(default=None, max_length=40)
+
+    @field_validator("category")
+    @classmethod
+    def clean_category(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
     @field_validator("weekdays")
     @classmethod
@@ -132,6 +142,7 @@ class HabitOut(ORM):
     target_value: Decimal
     unit: str | None
     color: str
+    category: str | None
     position: int
     archived: bool
 
@@ -180,6 +191,24 @@ class ShareOut(ORM):
     viewer: UserOut
 
 
+class SharedWithOut(BaseModel):
+    """A circle member, plus which of my habits they're actually allowed to see."""
+
+    user: UserOut
+    habit_ids: list[uuid.UUID]
+
+
 class CircleOut(BaseModel):
-    shared_with: list[UserOut]   # people who can see me
-    shared_by: list[UserOut]     # people I can watch
+    shared_with: list[SharedWithOut]   # people who can see (some of) me
+    shared_by: list[UserOut]           # people I can watch
+
+
+class HabitVisibilityUpdate(BaseModel):
+    habit_ids: list[uuid.UUID]
+
+
+# --- admin ---------------------------------------------------------------
+
+class AdminUserOut(UserOut):
+    created_at: datetime
+    habit_count: int

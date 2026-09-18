@@ -5,6 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -41,6 +42,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
     # Each account gets its own accent so shared views stay visually separate.
     accent: Mapped[str] = mapped_column(String(20), nullable=False, default="bleu")
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -89,6 +91,7 @@ class Habit(Base):
     unit: Mapped[str | None] = mapped_column(String(24))
 
     color: Mapped[str] = mapped_column(String(20), nullable=False, default="bleu")
+    category: Mapped[str | None] = mapped_column(String(40))
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -129,7 +132,11 @@ class Entry(Base):
 
 
 class Share(Base):
-    """Read-only access: `viewer` may look at everything `owner` tracks."""
+    """Circle membership: `viewer` may be granted specific habits to look at.
+
+    Being in the circle is a precondition, not visibility itself — see
+    `HabitShare` for which habits (if any) are actually exposed.
+    """
 
     __tablename__ = "shares"
     __table_args__ = (
@@ -150,3 +157,23 @@ class Share(Base):
 
     owner: Mapped[User] = relationship(foreign_keys=[owner_id])
     viewer: Mapped[User] = relationship(foreign_keys=[viewer_id])
+
+
+class HabitShare(Base):
+    """One habit made visible to one circle member."""
+
+    __tablename__ = "habit_shares"
+    __table_args__ = (
+        UniqueConstraint("habit_id", "viewer_id", name="uq_habit_shares_habit_viewer"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    habit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("habits.id", ondelete="CASCADE"), nullable=False
+    )
+    viewer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
