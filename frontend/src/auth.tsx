@@ -15,6 +15,7 @@ interface AuthValue {
   }) => Promise<void>;
   signOut: () => void;
   refresh: (user: User) => void;
+  resetPassword: (payload: { email: string; code: string; new_password: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -52,9 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const resetPassword = useCallback<AuthValue["resetPassword"]>(async (payload) => {
+    const result = await api.resetPassword(payload);
+    token.write(result.access_token);
+    setUser(result.user);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, ready, signIn, signUp, signOut, refresh: setUser }),
-    [user, ready, signIn, signUp, signOut],
+    () => ({ user, ready, signIn, signUp, signOut, refresh: setUser, resetPassword }),
+    [user, ready, signIn, signUp, signOut, resetPassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

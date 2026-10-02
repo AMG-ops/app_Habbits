@@ -33,8 +33,12 @@ server {
         try_files $uri =404;
     }
 
-    # Every other path is handled by the router in the browser.
+    # Every other path is handled by the router in the browser. index.html
+    # references hashed asset filenames, so it must never be served stale —
+    # browsers (and some proxies) will otherwise keep an old build around
+    # after a redeploy and load JS/CSS that no longer exists.
     location / {
+        add_header Cache-Control "no-cache";
         try_files $uri $uri/ /index.html;
     }
 }

@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     access_token_days: int = 30
     cors_origins: str = ""
 
+    # SMTP for password-reset codes. Left empty, sending falls back to
+    # logging the code to the server console — handy for local dev.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "Habitude <no-reply@habitude.app>"
+    smtp_use_tls: bool = True
+
     @property
     def sqlalchemy_url(self) -> str:
         """Render hands out `postgres://`, SQLAlchemy 2 wants an explicit driver."""
