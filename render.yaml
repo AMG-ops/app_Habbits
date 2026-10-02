@@ -37,19 +37,3 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
-
-  - type: web
-    name: habitude-web
-    runtime: docker
-    plan: free
-    region: frankfurt
-    rootDir: frontend
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /healthz
-    envVars:
-      # Private address of the API, resolved by Render at deploy time.
-      - key: API_UPSTREAM
-        fromService:
-          name: habitude-api
-          type: web
-          property: hostport
