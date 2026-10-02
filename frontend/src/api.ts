@@ -166,6 +166,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  forgotPassword: (email: string) =>
+    send("/auth/forgot-password", "POST", { email }),
+
+  resetPassword: (payload: { email: string; code: string; new_password: string }) =>
+    request<{ access_token: string; user: User }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   me: () => request<User>("/auth/me"),
 
   updateMe: (payload: { display_name?: string; accent?: Accent }) =>

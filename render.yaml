@@ -25,3 +25,31 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      # Set these in the Render dashboard — password-reset emails silently
+      # fall back to server logs until SMTP_HOST is filled in.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+  - type: web
+    name: habitude-web
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: frontend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      # Private address of the API, resolved by Render at deploy time.
+      - key: API_UPSTREAM
+        fromService:
+          name: habitude-api
+          type: web
+          property: hostport
